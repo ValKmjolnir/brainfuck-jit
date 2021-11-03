@@ -1,2 +1,6 @@
 .vscode
 jit
+*.exe
+*.dump
+*.out
+dump

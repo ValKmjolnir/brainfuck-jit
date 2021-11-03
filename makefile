@@ -1,2 +1,2 @@
 all:jit.cpp
-	clang++ jit.cpp -o jit -Wshadow -Wall
+	clang++ -O3 jit.cpp -o jit -Wshadow -Wall
