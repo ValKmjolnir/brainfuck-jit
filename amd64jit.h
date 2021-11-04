@@ -1,0 +1,148 @@
+#pragma once
+
+#include <iostream>
+#include <cstdint>
+#include <cstring>
+#include <vector>
+#include <stack>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/mman.h>
+#endif
+
+typedef void (*func)();
+
+// must use in x86_64/amd64
+class amd64jit{
+private:
+    uint8_t* mem;
+    uint8_t* ptr;
+    size_t size;
+    std::stack<uint8_t*> stk;
+public:
+    amd64jit(const size_t);
+    ~amd64jit();
+    void err(){
+        std::cout<<"data overflow, please try a memory size greater than "<<size<<'\n';
+        std::exit(-1);
+    }
+    void exec();
+    void print();
+    void push(std::vector<uint8_t>);
+    void push8(uint8_t);
+    void push16(uint16_t);
+    void push32(uint32_t);
+    void push64(uint64_t);
+    void je();
+    void jne();
+};
+
+amd64jit::amd64jit(const size_t _size){
+    size=_size;
+#ifdef _WIN32
+    mem=(uint8_t*)VirtualAlloc(nullptr,size,
+        MEM_COMMIT | MEM_RESERVE,
+        PAGE_EXECUTE_READWRITE);
+#else
+    mem=(uint8_t*)mmap(nullptr,size,
+        PROT_READ|PROT_WRITE|PROT_EXEC,
+        MAP_PRIVATE|MAP_ANONYMOUS,
+        -1,0);
+#endif
+    if(!mem){
+        std::cout<<"failed to allocate memory\n";
+        std::exit(-1);
+    }
+    memset(mem,0,size);
+    ptr=mem;
+}
+
+amd64jit::~amd64jit(){
+#ifdef _WIN32
+    VirtualFree(mem,size,MEM_RELEASE);
+#else
+    munmap(mem,size);
+#endif
+    mem=nullptr;
+}
+
+void amd64jit::exec(){
+    ((func)mem)();
+}
+
+void amd64jit::print(){
+    const char* tbl="0123456789abcdef";
+    for(uint8_t* i=mem;i<ptr;++i)
+        printf("%c%c%c",tbl[((*i)>>4)&0x0f],tbl[(*i)&0x0f]," \n"[!((i-mem+1)&0xf)]);
+    printf("\n");
+}
+
+void amd64jit::push(std::vector<uint8_t> codes){
+    for(auto c:codes){
+        ptr[0]=c;
+        ++ptr;
+        if(ptr>=mem+size)
+            err();
+    }
+}
+
+void amd64jit::push8(uint8_t n){
+    if(ptr+1>=mem+size)
+        err();
+    ptr[0]=n;
+    ++ptr;
+}
+
+void amd64jit::push16(uint16_t n){
+    if(ptr+2>=mem+size)
+        err();
+    ptr[0]=n&0xff;
+    ptr[1]=(n>>8)&0xff;
+    ptr+=2;
+}
+
+void amd64jit::push32(uint32_t n){
+    if(ptr+4>=mem+size)
+        err();
+    ptr[0]=n&0xff;
+    ptr[1]=(n>>8)&0xff;
+    ptr[2]=(n>>16)&0xff;
+    ptr[3]=(n>>24)&0xff;
+    ptr+=4;
+}
+
+void amd64jit::push64(uint64_t n){
+    if(ptr+8>=mem+size)
+        err();
+    ptr[0]=n&0xff;
+    ptr[1]=(n>>8)&0xff;
+    ptr[2]=(n>>16)&0xff;
+    ptr[3]=(n>>24)&0xff;
+    ptr[4]=(n>>32)&0xff;
+    ptr[5]=(n>>40)&0xff;
+    ptr[6]=(n>>48)&0xff;
+    ptr[7]=(n>>56)&0xff;
+    ptr+=8;
+}
+
+void amd64jit::je(){
+    stk.push(ptr);
+    push({0x0f,0x84,0x00,0x00,0x00,0x00});// je $false
+}
+
+void amd64jit::jne(){
+    push({0x0f,0x85,0x00,0x00,0x00,0x00});// jne $true
+    uint8_t* label=stk.top();stk.pop();
+    uint64_t p0=ptr-label;
+    uint64_t p1=label-ptr;
+    ptr[-4]=(p1&0xff);
+    ptr[-3]=((p1>>8)&0xff);
+    ptr[-2]=((p1>>16)&0xff);
+    ptr[-1]=((p1>>24)&0xff);
+    label[2]=(p0&0xff);
+    label[3]=((p0>>8)&0xff);
+    label[4]=((p0>>16)&0xff);
+    label[5]=((p0>>24)&0xff);
+}
