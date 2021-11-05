@@ -25,7 +25,7 @@ std::vector<opcode> scanner(std::string s){
     std::stack<size_t> stk;
     uint32_t cnt=0;
     int line=0;
-    for(int i=0;i<s.length();++i){
+    for(size_t i=0;i<s.length();++i){
         switch(s[i]){
             case '+':
                 cnt=0;
@@ -90,14 +90,14 @@ void interpreter(const std::vector<opcode>& code){
     clock_t begin=clock();
     uint8_t buf[131072]={0};
     uint32_t p=0;
-    for(int i=0;i<code.size();++i){
+    for(size_t i=0;i<code.size();++i){
         switch(code[i].op){
             case op_add:buf[p]+=code[i].num;break;
             case op_sub:buf[p]-=code[i].num;break;
             case op_addp:p+=code[i].num;break;
             case op_subp:p-=code[i].num;break;
-            case op_jt:if(buf[p])i=(code[i].num)-1;break;
-            case op_jf:if(!buf[p])i=(code[i].num)-1;break;
+            case op_jt:if(buf[p])i=code[i].num;break;
+            case op_jf:if(!buf[p])i=code[i].num;break;
             case op_in:buf[p]=getchar();break;
             case op_out:putchar(buf[p]);break;
         }
@@ -105,14 +105,24 @@ void interpreter(const std::vector<opcode>& code){
     std::cout<<"interpreter time usage: "<<(clock()-begin)/(1.0*CLOCKS_PER_SEC)<<"s\n";
 }
 
-void jit_compiler(const std::vector<opcode>& code){
+void jit(const std::vector<opcode>& code){
     amd64jit mem(65536);
     
+    mem.push({0x55});// pushq %rbp
+    mem.push({0x48,0x89,0xe5});// mov %rsp,%rbp
     mem.push({0x53});// pushq %rbx
-    mem.push({0x48,0x81,0xec,0x00,0x80,0x00,0x00});// sub $0x8000,%rsp
+    mem.push({0x51});// pushq %rcx
+    mem.push({0x50});// pushq %rax
+    mem.push({0x48,0x81,0xec,0x00,0x00,0x02,0x00});// sub $0x20000,%rsp
+    mem.push({0x48,0x89,0xe3});// movq %rsp,%rbx
 
+    /* clear stack memory */
     mem.push({0x48,0xb9});
-    mem.push64((uint64_t)putchar);// movabs $putchar,%rcx
+    mem.push64((uint64_t)memset);// movabs $memset,%rcx
+    mem.push({0x48,0x89,0xe7});// mov %rsp,%rdi
+    mem.push({0x31,0xf6});// xor %esi,%esi
+    mem.push({0xba,0x00,0x00,0x02,0x00});// mov $0x20000,%edx
+    mem.push({0xff,0xd1});// callq *%rcx
 
     for(auto& op:code){
         switch(op.op){
@@ -130,48 +140,35 @@ void jit_compiler(const std::vector<opcode>& code){
                 mem.push({0x48,0x81,0xeb});// sub $op.num %rbx
                 mem.push32(op.num);
                 break;
-            case op_jt:// al!=0
+            case op_jt:// if(al)
                 mem.push({0x8a,0x03});// mov (%rbx),%al
                 mem.push({0x84,0xc0});// test %al,%al
                 mem.jne();
                 break;
-            case op_jf:// al==0
+            case op_jf:// if(!al)
                 mem.push({0x8a,0x03});// mov (%rbx),%al
                 mem.push({0x84,0xc0});// test %al,%al
                 mem.je();
                 break;
             case op_in:break;
             case op_out:
+                mem.push({0x48,0xb9});
+                mem.push64((uint64_t)putchar);// movabs $putchar,%rcx
                 mem.push({0x0f,0xbe,0x3b});// movsbl (%rbx),%edi
                 mem.push({0xff,0xd1});// callq *%rcx
                 break;
         }
     }
-    mem.push({0x48,0x81,0xc4,0x00,0x80,0x00,0x00});// add $0x8000,%rsp
+    mem.push({0x48,0x81,0xc4,0x00,0x00,0x02,0x00});// add $0x20000,%rsp
+    mem.push({0x58});// popq %rax
+    mem.push({0x59});// popq %rcx
     mem.push({0x5b});// popq %rbx
+    mem.push({0x5d});// popq %rbp
     mem.push({0xc3});// retq
-    
-    //mem.print();
-    
-    //clock_t begin=clock();
-    mem.exec();
-    //std::cout<<"jit time usage: "<<(clock()-begin)/(1.0*CLOCKS_PER_SEC)<<"s\n";
-}
 
-extern "C" void testfunc(){
-    printf("putc %p\n",putchar);
-    asm(
-        "pushq %rbx\n"        // store rbx on stack
-        "subq $0x8000,%rsp\n" // uint8_t buff[32768<<4];
-        "movq %rsp,%rbx\n"    // uint8_t* p=buff;
-        "movabs $putchar,%rcx\n"
-        "movb $0x41,(%rbx)\n" // p[0]='A';
-        "movsbl (%rbx),%edi\n"
-        "callq *%rcx\n"
-        "addq $0x8000,%rsp\n" // delete buff
-        "popq %rbx"
-    );
-    putchar('\n');
+    clock_t begin=clock();
+    mem.exec();
+    std::cout<<"jit time usage: "<<(clock()-begin)/(1.0*CLOCKS_PER_SEC)<<"s\n";
 }
 
 int main(){
@@ -179,8 +176,7 @@ int main(){
     std::stringstream ss;
     ss<<fin.rdbuf();
     std::vector<opcode> code=scanner(ss.str());
-    //interpreter(code);
-    jit_compiler(code);
-    testfunc();
+    interpreter(code);
+    jit(code);
     return 0;
 }

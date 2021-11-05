@@ -1,5 +1,6 @@
 #pragma once
 
+#include <fstream>
 #include <iostream>
 #include <cstdint>
 #include <cstring>
@@ -37,6 +38,8 @@ public:
     void push64(uint64_t);
     void je();
     void jne();
+    uint8_t* loc(){return ptr;}
+    func get(){return (func)mem;}
 };
 
 amd64jit::amd64jit(const size_t _size){
@@ -128,21 +131,22 @@ void amd64jit::push64(uint64_t n){
 }
 
 void amd64jit::je(){
+    push({0x0f,0x84,0x00,0x00,0x00,0x00});// je
     stk.push(ptr);
-    push({0x0f,0x84,0x00,0x00,0x00,0x00});// je $false
 }
 
 void amd64jit::jne(){
-    push({0x0f,0x85,0x00,0x00,0x00,0x00});// jne $true
-    uint8_t* label=stk.top();stk.pop();
-    uint64_t p0=ptr-label;
-    uint64_t p1=label-ptr;
-    ptr[-4]=(p1&0xff);
-    ptr[-3]=((p1>>8)&0xff);
-    ptr[-2]=((p1>>16)&0xff);
-    ptr[-1]=((p1>>24)&0xff);
-    label[2]=(p0&0xff);
-    label[3]=((p0>>8)&0xff);
-    label[4]=((p0>>16)&0xff);
-    label[5]=((p0>>24)&0xff);
+    push({0x0f,0x85,0x00,0x00,0x00,0x00});// jne
+    uint8_t* je_next=stk.top();stk.pop();
+    uint8_t* jne_next= ptr;
+    uint64_t p0=jne_next-je_next;
+    uint64_t p1=je_next-jne_next;
+    jne_next[-4]=(p1&0xff);
+    jne_next[-3]=((p1>>8)&0xff);
+    jne_next[-2]=((p1>>16)&0xff);
+    jne_next[-1]=((p1>>24)&0xff);
+    je_next[-4]=(p0&0xff);
+    je_next[-3]=((p0>>8)&0xff);
+    je_next[-2]=((p0>>16)&0xff);
+    je_next[-1]=((p0>>24)&0xff);
 }
