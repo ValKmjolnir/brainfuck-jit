@@ -38,8 +38,6 @@ public:
     void push64(uint64_t);
     void je();
     void jne();
-    uint8_t* loc(){return ptr;}
-    func get(){return (func)mem;}
 };
 
 amd64jit::amd64jit(const size_t _size){
