@@ -44,7 +44,7 @@ amd64jit::amd64jit(const size_t _size){
     size=_size;
 #ifdef _WIN32
     mem=(uint8_t*)VirtualAlloc(nullptr,size,
-        MEM_COMMIT | MEM_RESERVE,
+        MEM_COMMIT|MEM_RESERVE,
         PAGE_EXECUTE_READWRITE);
 #else
     mem=(uint8_t*)mmap(nullptr,size,
@@ -75,6 +75,7 @@ void amd64jit::exec(){
 
 void amd64jit::print(){
     const char* tbl="0123456789abcdef";
+    std::cout<<"size: "<<(uint64_t)(ptr-mem)<<std::endl;
     for(uint8_t* i=mem;i<ptr;++i)
         printf("%c%c%c",tbl[((*i)>>4)&0x0f],tbl[(*i)&0x0f]," \n"[!((i-mem+1)&0xf)]);
     printf("\n");
