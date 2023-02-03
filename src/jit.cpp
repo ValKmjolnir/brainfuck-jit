@@ -108,7 +108,7 @@ void interpreter(const std::vector<opcode>& code){
         }
     }
     auto end=std::chrono::high_resolution_clock::now();
-    std::cout<<"interpreter time usage: "<<(end-begin).count()*1.0/std::chrono::high_resolution_clock::duration::period::den<<"s\n";
+    std::cout<<"\ninterpreter time usage: "<<(end-begin).count()*1.0/std::chrono::high_resolution_clock::duration::period::den<<"s\n";
 }
 
 void jit(const std::vector<opcode>& code){
@@ -174,16 +174,53 @@ void jit(const std::vector<opcode>& code){
     auto begin=std::chrono::high_resolution_clock::now();
     mem.exec();
     auto end=std::chrono::high_resolution_clock::now();
-    std::cout<<"jit-compiler time usage: "<<(end-begin).count()*1.0/std::chrono::high_resolution_clock::duration::period::den<<"s\n";
+    std::cout<<"\njit-compiler time usage: "<<(end-begin).count()*1.0/std::chrono::high_resolution_clock::duration::period::den<<"s\n";
 }
 
-int main(){
-    std::ifstream fin("./test/mandelbrot.bf");
+int main(int argc,const char* argv[]){
+    if(argc==1){
+        std::cout<<"usage:\n"
+        <<"  jit [options] <filename>\n\n"
+        <<"options:\n"
+        <<"  -i | interpreter mode\n"
+        <<"  -j | JIT compiler mode\n";
+        return 0;
+    }
+
+    bool interpreter_mode=false;
+    bool jit_compiler_mode=false;
+    int filename_index=-1;
+    for(int i=1;i<argc;++i){
+        if(std::string(argv[i])=="-i"){
+            interpreter_mode=true;
+        }else if(std::string(argv[i])=="-j"){
+            jit_compiler_mode=true;
+        }else if(argv[i][0]!='-'){
+            filename_index=i;
+        }else{
+            std::cout<<"error argument \""<<argv[i]<<"\"\n"
+            <<"usage:\n"
+            <<"  jit [options] <filename>\n\n"
+            <<"options:\n"
+            <<"  -i | interpreter mode\n"
+            <<"  -j | JIT compiler mode\n";
+            return -1;
+        }
+    }
+
+    if(!interpreter_mode && !jit_compiler_mode){
+        interpreter_mode=jit_compiler_mode=true;
+    }
+
+    std::ifstream fin(argv[filename_index]);
     std::stringstream ss;
     ss<<fin.rdbuf();
     std::vector<opcode> code=scanner(ss.str());
-
-    interpreter(code);
-    jit(code);
+    if(interpreter_mode){
+        interpreter(code);
+    }
+    if(jit_compiler_mode){
+        jit(code);
+    }
     return 0;
 }
