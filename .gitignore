@@ -1,6 +1,13 @@
+# directory
+.vs
 .vscode
+.DS_Store
+
+# executable
 jit
 *.exe
-*.dump
 *.out
+
+# debug file
 dump
+*.dump

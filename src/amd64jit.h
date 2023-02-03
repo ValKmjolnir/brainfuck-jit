@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -25,19 +26,16 @@ private:
 public:
     amd64jit(const size_t);
     ~amd64jit();
-    void err(){
-        std::cout<<"data overflow, please try a memory size greater than "<<size<<'\n';
-        std::exit(-1);
-    }
+    void err();
     void exec();
     void print();
-    void push(std::vector<uint8_t>);
-    void push8(uint8_t);
-    void push16(uint16_t);
-    void push32(uint32_t);
-    void push64(uint64_t);
-    void je();
-    void jne();
+    amd64jit& push(std::initializer_list<uint8_t>);
+    amd64jit& push8(uint8_t);
+    amd64jit& push16(uint16_t);
+    amd64jit& push32(uint32_t);
+    amd64jit& push64(uint64_t);
+    amd64jit& je();
+    amd64jit& jne();
 };
 
 amd64jit::amd64jit(const size_t _size){
@@ -69,43 +67,54 @@ amd64jit::~amd64jit(){
     mem=nullptr;
 }
 
+void amd64jit::err(){
+    std::cout<<"data overflow, please try a memory size greater than "<<size<<'\n';
+    std::exit(-1);
+}
+
 void amd64jit::exec(){
+    std::cout<<"putchar : 0x"<<std::hex<<std::setw(16)<<std::setfill('0')<<(uint64_t)putchar<<std::dec<<std::endl;
+    std::cout<<"memset  : 0x"<<std::hex<<std::setw(16)<<std::setfill('0')<<(uint64_t)memset<<std::dec<<std::endl;
+    std::cout<<"memory  : 0x"<<std::hex<<std::setw(16)<<std::setfill('0')<<(uint64_t)mem<<std::dec<<std::endl;
     ((func)mem)();
 }
 
 void amd64jit::print(){
-    const char* tbl="0123456789abcdef";
+    const char tbl[]="0123456789abcdef";
     std::cout<<"size: "<<(uint64_t)(ptr-mem)<<std::endl;
     for(uint8_t* i=mem;i<ptr;++i)
         printf("%c%c%c",tbl[((*i)>>4)&0x0f],tbl[(*i)&0x0f]," \n"[!((i-mem+1)&0xf)]);
     printf("\n");
 }
 
-void amd64jit::push(std::vector<uint8_t> codes){
+amd64jit& amd64jit::push(std::initializer_list<uint8_t> codes){
     for(auto c:codes){
         ptr[0]=c;
         ++ptr;
         if(ptr>=mem+size)
             err();
     }
+    return *this;
 }
 
-void amd64jit::push8(uint8_t n){
+amd64jit& amd64jit::push8(uint8_t n){
     if(ptr+1>=mem+size)
         err();
     ptr[0]=n;
     ++ptr;
+    return *this;
 }
 
-void amd64jit::push16(uint16_t n){
+amd64jit& amd64jit::push16(uint16_t n){
     if(ptr+2>=mem+size)
         err();
     ptr[0]=n&0xff;
     ptr[1]=(n>>8)&0xff;
     ptr+=2;
+    return *this;
 }
 
-void amd64jit::push32(uint32_t n){
+amd64jit& amd64jit::push32(uint32_t n){
     if(ptr+4>=mem+size)
         err();
     ptr[0]=n&0xff;
@@ -113,9 +122,10 @@ void amd64jit::push32(uint32_t n){
     ptr[2]=(n>>16)&0xff;
     ptr[3]=(n>>24)&0xff;
     ptr+=4;
+    return *this;
 }
 
-void amd64jit::push64(uint64_t n){
+amd64jit& amd64jit::push64(uint64_t n){
     if(ptr+8>=mem+size)
         err();
     ptr[0]=n&0xff;
@@ -127,17 +137,19 @@ void amd64jit::push64(uint64_t n){
     ptr[6]=(n>>48)&0xff;
     ptr[7]=(n>>56)&0xff;
     ptr+=8;
+    return *this;
 }
 
-void amd64jit::je(){
+amd64jit& amd64jit::je(){
     push({0x0f,0x84,0x00,0x00,0x00,0x00});// je
     stk.push(ptr);
+    return *this;
 }
 
-void amd64jit::jne(){
+amd64jit& amd64jit::jne(){
     push({0x0f,0x85,0x00,0x00,0x00,0x00});// jne
     uint8_t* je_next=stk.top();stk.pop();
-    uint8_t* jne_next= ptr;
+    uint8_t* jne_next=ptr;
     uint64_t p0=jne_next-je_next;
     uint64_t p1=je_next-jne_next;
     jne_next[-4]=(p1&0xff);
@@ -148,4 +160,5 @@ void amd64jit::jne(){
     je_next[-3]=((p0>>8)&0xff);
     je_next[-2]=((p0>>16)&0xff);
     je_next[-1]=((p0>>24)&0xff);
+    return *this;
 }
