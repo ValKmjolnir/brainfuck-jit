@@ -13,7 +13,7 @@
 
 uint8_t buff[0x20000];
 
-enum op{
+enum op {
     op_add,
     op_sub,
     op_addp,
@@ -24,21 +24,21 @@ enum op{
     op_out
 };
 
-struct opcode{
+struct opcode {
     uint8_t op;
     uint32_t num;
 };
 
-std::vector<opcode> scanner(std::string s){
+std::vector<opcode> scanner(const std::string& s) {
     std::vector<opcode> code;
     std::stack<size_t> stk;
     uint32_t cnt=0;
     int line=0;
-    for(size_t i=0;i<s.length();++i){
-        switch(s[i]){
+    for(size_t i=0;i<s.length();++i) {
+        switch(s[i]) {
             case '+':
                 cnt=0;
-                while(s[i]=='+'){
+                while(s[i]=='+') {
                     ++cnt;
                     ++i;
                 }
@@ -46,7 +46,7 @@ std::vector<opcode> scanner(std::string s){
                 code.push_back({op_add,cnt&0xff});break;
             case '-':
                 cnt=0;
-                while(s[i]=='-'){
+                while(s[i]=='-') {
                     ++cnt;
                     ++i;
                 }
@@ -54,7 +54,7 @@ std::vector<opcode> scanner(std::string s){
                 code.push_back({op_sub,cnt&0xff});break;
             case '>':
                 cnt=0;
-                while(s[i]=='>'){
+                while(s[i]=='>') {
                     ++cnt;
                     ++i;
                 }
@@ -62,7 +62,7 @@ std::vector<opcode> scanner(std::string s){
                 code.push_back({op_addp,cnt});break;
             case '<':
                 cnt=0;
-                while(s[i]=='<'){
+                while(s[i]=='<') {
                     ++cnt;
                     ++i;
                 }
@@ -72,7 +72,7 @@ std::vector<opcode> scanner(std::string s){
                 stk.push(code.size());
                 code.push_back({op_jf,0});break;
             case ']':
-                if(stk.empty()){
+                if(stk.empty()) {
                     std::cout<<"empty stack at line "<<line<<"\n";
                     std::exit(-1);
                 }
@@ -84,34 +84,34 @@ std::vector<opcode> scanner(std::string s){
             case '\n':++line;break;
         }
     }
-    if(!stk.empty()){
+    if(!stk.empty()) {
         std::cout<<"lack ]\n";
         std::exit(-1);
     }
     return code;
 }
 
-void interpreter(const std::vector<opcode>& code){
+void interpreter(const std::vector<opcode>& code) {
     auto begin=std::chrono::high_resolution_clock::now();
     memset(buff,0,sizeof(buff));
     uint32_t p=0;
-    for(size_t i=0;i<code.size();++i){
-        switch(code[i].op){
-            case op_add:buff[p]+=code[i].num;break;
-            case op_sub:buff[p]-=code[i].num;break;
-            case op_addp:p+=code[i].num;break;
-            case op_subp:p-=code[i].num;break;
-            case op_jt:if(buff[p])i=code[i].num;break;
-            case op_jf:if(!buff[p])i=code[i].num;break;
-            case op_in:buff[p]=getchar();break;
-            case op_out:putchar(buff[p]);break;
+    for(size_t i=0;i<code.size();++i) {
+        switch(code[i].op) {
+            case op_add:  buff[p]+=code[i].num; break;
+            case op_sub:  buff[p]-=code[i].num; break;
+            case op_addp: p+=code[i].num; break;
+            case op_subp: p-=code[i].num; break;
+            case op_jt:   if(buff[p]) i=code[i].num; break;
+            case op_jf:   if(!buff[p]) i=code[i].num; break;
+            case op_in:   buff[p]=getchar(); break;
+            case op_out:  putchar(buff[p]); break;
         }
     }
     auto end=std::chrono::high_resolution_clock::now();
     std::cout<<"\ninterpreter time usage: "<<(end-begin).count()*1.0/std::chrono::high_resolution_clock::duration::period::den<<"s\n";
 }
 
-void jit(const std::vector<opcode>& code){
+void jit(const std::vector<opcode>& code) {
     amd64jit mem(65536);
     memset(buff,0,sizeof(buff));
 
@@ -130,8 +130,8 @@ void jit(const std::vector<opcode>& code){
     /* set bf machine's paper pointer */
     mem.push({0x48,0xbb}).push64((uint64_t)buff);// movq $buff,%rbx
 
-    for(auto& op:code){
-        switch(op.op){
+    for(auto& op:code) {
+        switch(op.op) {
             case op_add: mem.push({0x80,0x03,(uint8_t)(op.num&0xff)}); break; // addb $op.num,(%rbx)
             case op_sub: mem.push({0x80,0x2b,(uint8_t)(op.num&0xff)}); break; // subb $op.num,(%rbx)
             case op_addp: mem.push({0x48,0x81,0xc3}).push32(op.num); break;   // add $op.num,%rbx
@@ -146,17 +146,19 @@ void jit(const std::vector<opcode>& code){
                 mem.push({0x84,0xc0});// test %al,%al
                 mem.je();
                 break;
-            case op_in: /* TODO */ break;
+            case op_in:
+                mem.push({0x48,0xb8}).push64((uint64_t)getchar);// movabs $getchar,%rax
+                mem.push({0xff,0xd0});// callq *%rax
+                mem.push({0x88,0x03});// movsbl %al,(%rbx)
+                break;
             case op_out:
+                mem.push({0x48,0xb8}).push64((uint64_t)putchar);// movabs $putchar,%rax
 #ifndef _WIN32
-                mem.push({0x48,0xb8}).push64((uint64_t)putchar);// movabs $putchar,%rax
                 mem.push({0x0f,0xbe,0x3b});// movsbl (%rbx),%edi
-                mem.push({0xff,0xd0});// callq *%rax
 #else
-                mem.push({0x48,0xb8}).push64((uint64_t)putchar);// movabs $putchar,%rax
                 mem.push({0x0f,0xbe,0x0b});// movsbl (%rbx),%ecx
-                mem.push({0xff,0xd0});// callq *%rax
 #endif
+                mem.push({0xff,0xd0});// callq *%rax
                 break;
         }
     }
@@ -177,49 +179,62 @@ void jit(const std::vector<opcode>& code){
     std::cout<<"\njit-compiler time usage: "<<(end-begin).count()*1.0/std::chrono::high_resolution_clock::duration::period::den<<"s\n";
 }
 
-int main(int argc,const char* argv[]){
+void usage() {
+    std::cout<<"usage:\n"
+    <<"  jit [options] <filename>\n\n"
+    <<"options:\n"
+    <<"  -i | interpreter mode\n"
+    <<"  -j | JIT compiler mode\n";
+}
+
+int main(int argc,const char* argv[]) {
     if(argc==1){
-        std::cout<<"usage:\n"
-        <<"  jit [options] <filename>\n\n"
-        <<"options:\n"
-        <<"  -i | interpreter mode\n"
-        <<"  -j | JIT compiler mode\n";
+        usage();
         return 0;
     }
 
     bool interpreter_mode=false;
     bool jit_compiler_mode=false;
     int filename_index=-1;
-    for(int i=1;i<argc;++i){
-        if(std::string(argv[i])=="-i"){
+    for(int i=1;i<argc;++i) {
+        if(std::string(argv[i])=="-i") {
             interpreter_mode=true;
-        }else if(std::string(argv[i])=="-j"){
+        } else if(std::string(argv[i])=="-j") {
             jit_compiler_mode=true;
-        }else if(argv[i][0]!='-'){
+        } else if(argv[i][0]!='-') {
             filename_index=i;
-        }else{
-            std::cout<<"error argument \""<<argv[i]<<"\"\n"
-            <<"usage:\n"
-            <<"  jit [options] <filename>\n\n"
-            <<"options:\n"
-            <<"  -i | interpreter mode\n"
-            <<"  -j | JIT compiler mode\n";
+        } else {
+            std::cout<<"error argument \""<<argv[i]<<"\"\n\n";
+            usage();
             return -1;
         }
     }
 
-    if(!interpreter_mode && !jit_compiler_mode){
-        interpreter_mode=jit_compiler_mode=true;
+    if(!interpreter_mode && !jit_compiler_mode) {
+        std::cout<<"please choose an interpreter or JIT-compiler\n\n";
+        usage();
+        return -1;
+    }
+
+    if(filename_index<0) {
+        std::cout<<"no input file\n";
+        usage();
+        return -1;
     }
 
     std::ifstream fin(argv[filename_index]);
+    if(fin.fail()) {
+        std::cout<<"cannot open file <"<<argv[filename_index]<<">\n";
+        return -1;
+    }
+
     std::stringstream ss;
     ss<<fin.rdbuf();
     std::vector<opcode> code=scanner(ss.str());
-    if(interpreter_mode){
+    if(interpreter_mode) {
         interpreter(code);
     }
-    if(jit_compiler_mode){
+    if(jit_compiler_mode) {
         jit(code);
     }
     return 0;

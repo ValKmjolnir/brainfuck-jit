@@ -73,38 +73,60 @@ mem.push({0x48,0xbb}).push64((uint64_t)buff); // movq $buff,%rbx
 These four operators are not so difficult to translate to machine codes:
 
 ```C++
-case op_add: mem.push({0x80,0x03,(uint8_t)(op.num&0xff)}); break; // addb $op.num,(%rbx)
-case op_sub: mem.push({0x80,0x2b,(uint8_t)(op.num&0xff)}); break; // subb $op.num,(%rbx)
-case op_addp: mem.push({0x48,0x81,0xc3}).push32(op.num); break;   // add $op.num,%rbx
-case op_subp: mem.push({0x48,0x81,0xeb}).push32(op.num); break;   // sub $op.num,%rbx
+case op_add:  mem.push({0x80,0x03,(uint8_t)(op.num&0xff)}); break; // addb $op.num,(%rbx)
+case op_sub:  mem.push({0x80,0x2b,(uint8_t)(op.num&0xff)}); break; // subb $op.num,(%rbx)
+case op_addp: mem.push({0x48,0x81,0xc3}).push32(op.num);    break; // add $op.num,%rbx
+case op_subp: mem.push({0x48,0x81,0xeb}).push32(op.num);    break; // sub $op.num,%rbx
 ```
 
 ### __Library Function putchar & getchar__
 
-And op_out uses the `putchar`,
+#### __putchar__
+
+```C++
+int putchar(int);
+```
+
+`op_out` uses the `putchar`,
 write a demo and use objdump to see how the gcc and clang generate the machine code that calls the function,
 then just copy them :)
 
-The test file doesn't use `getchar` so i haven't wrote the machine code to call this function. (TODO)
-
 ```C++
+mem.push({0x48,0xb8}).push64((uint64_t)putchar); // movabs $putchar,%rax
 #ifndef _WIN32
-    mem.push({0x48,0xb8}).push64((uint64_t)putchar); // movabs $putchar,%rax
-    mem.push({0x0f,0xbe,0x3b}); // movsbl (%rbx),%edi
-    mem.push({0xff,0xd0}); // callq *%rax
+mem.push({0x0f,0xbe,0x3b}); // movsbl (%rbx),%edi
 #else
-    mem.push({0x48,0xb8}).push64((uint64_t)putchar); // movabs $putchar,%rax
-    mem.push({0x0f,0xbe,0x0b}); // movsbl (%rbx),%ecx
-    mem.push({0xff,0xd0}); // callq *%rax
+mem.push({0x0f,0xbe,0x0b}); // movsbl (%rbx),%ecx
 #endif
+mem.push({0xff,0xd0}); // callq *%rax
 ```
 
-Ok, you may find that there's a small difference between generated machine code on Windows platform.
+You may find that there's a small difference between generated machine code on Windows platform.
 This is because the rule of parameter passing in __call convention__ of Windows is different from Linux/macOS/Unix.
 And Linux/macOS/Unix use `rdi` to get the first parameter, but Windows uses `rcx`.
 
 Although JIT-compiler developers should remember this rule,
 it is quite easier to remember x86_64/amd64 call convention than x86_32...
+
+#### __getchar__
+
+```C++
+int getchar();
+```
+
+`op_in` uses the `getchar`,
+also we just use the objdump to see how gcc/clang generate the code,
+and just copy them :)
+
+Luckily, on Windows/Linux/macOS/Unix platform, the return value `int` will all be stored in register `rax`. And we just need to mov the low 8-bits of `rax` to `rbx[0]` (aka `movsbl %al,(%rbx)`).
+
+```C++
+mem.push({0x48,0xb8}).push64((uint64_t)getchar); // movabs $getchar,%rax
+mem.push({0xff,0xd0}); // callq *%rax
+mem.push({0x88,0x03}); // movsbl %al,(%rbx)
+```
+
+So we don't need to write `#ifndef _WIN32` and so on :)
 
 ### __Jump Operation__
 
@@ -112,14 +134,14 @@ it is quite easier to remember x86_64/amd64 call convention than x86_32...
 You must calculate the distance of two jump labels to make sure they work correctly.
 
 ```C++
-amd64jit& amd64jit::je(){
-    push({0x0f,0x84,0x00,0x00,0x00,0x00}); // je
+amd64jit& amd64jit::je() {
+    push({0x0f,0x84}).push32(0x0);// je
     stk.push(ptr);
     return *this;
 }
 
-amd64jit& amd64jit::jne(){
-    push({0x0f,0x85,0x00,0x00,0x00,0x00}); // jne
+amd64jit& amd64jit::jne() {
+    push({0x0f,0x85}).push32(0x0);// jne
     uint8_t* je_next=stk.top();stk.pop();
     uint8_t* jne_next=ptr;
     uint64_t p0=jne_next-je_next;
@@ -136,7 +158,7 @@ amd64jit& amd64jit::jne(){
 }
 ```
 
-Be careful that op_jf(`[`) uses the `je` and op_jt(`]`) uses the `jne`.
+op_jf(`[`) uses the `je` and op_jt(`]`) uses the `jne`.
 
 ### __Conclusion__
 
@@ -148,7 +170,15 @@ Be careful that op_jf(`[`) uses the `je` and op_jt(`]`) uses the `jne`.
 |`<`|op_subp|`sub $op.num %rbx`|
 |`[`|op_jf|`je label`|
 |`]`|op_jt|`jne label`|
-|`,`|op_in|`callq *%rax`|
+|`,`|op_in|`callq *%rax` & `movsbl %al,(%rbx)`|
 |`.`|op_out|`callq *%rax`|
 
 Hope you enjoy it.
+
+### __More__
+
+Want to check the output machine code of different CPU arch?
+
+You may need this website:
+
+[__gcc.godbolt.org__](https://gcc.godbolt.org/)
