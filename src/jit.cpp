@@ -27,6 +27,7 @@ enum op {
 struct opcode {
     uint8_t op;
     uint32_t num;
+    size_t offset;
 };
 
 std::vector<opcode> scanner(const std::string& s) {
@@ -43,7 +44,7 @@ std::vector<opcode> scanner(const std::string& s) {
                     ++i;
                 }
                 --i;
-                code.push_back({op_add,cnt&0xff});break;
+                code.push_back({op_add,cnt&0xff,3});break;
             case '-':
                 cnt=0;
                 while(s[i]=='-') {
@@ -51,7 +52,7 @@ std::vector<opcode> scanner(const std::string& s) {
                     ++i;
                 }
                 --i;
-                code.push_back({op_sub,cnt&0xff});break;
+                code.push_back({op_sub,cnt&0xff,3});break;
             case '>':
                 cnt=0;
                 while(s[i]=='>') {
@@ -59,7 +60,7 @@ std::vector<opcode> scanner(const std::string& s) {
                     ++i;
                 }
                 --i;
-                code.push_back({op_addp,cnt});break;
+                code.push_back({op_addp,cnt,7});break;
             case '<':
                 cnt=0;
                 while(s[i]=='<') {
@@ -67,20 +68,20 @@ std::vector<opcode> scanner(const std::string& s) {
                     ++i;
                 }
                 --i;
-                code.push_back({op_subp,cnt});break;
+                code.push_back({op_subp,cnt,7});break;
             case '[':
                 stk.push(code.size());
-                code.push_back({op_jf,0});break;
+                code.push_back({op_jf,0,10});break;
             case ']':
                 if(stk.empty()) {
                     std::cout<<"empty stack at line "<<line<<"\n";
                     std::exit(-1);
                 }
                 code[stk.top()].num=code.size()&0xffffffff;
-                code.push_back({op_jt,(uint32_t)stk.top()});
+                code.push_back({op_jt,(uint32_t)stk.top(),10});
                 stk.pop();break;
-            case ',':code.push_back({op_in,0});break;
-            case '.':code.push_back({op_out,0});break;
+            case ',':code.push_back({op_in,0,14});break;
+            case '.':code.push_back({op_out,0,15});break;
             case '\n':++line;break;
         }
     }
