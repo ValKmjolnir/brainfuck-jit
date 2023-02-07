@@ -13,6 +13,10 @@
 #include <sys/mman.h>
 #endif
 
+#ifndef MAP_JIT
+#define MAP_JIT 0
+#endif
+
 typedef void (*func)();
 
 // must use in x86_64/amd64
@@ -45,8 +49,8 @@ amd64jit::amd64jit(const size_t _size) {
         PAGE_EXECUTE_READWRITE);
 #else
     mem=(uint8_t*)mmap(nullptr,size,
-        PROT_READ|PROT_WRITE|PROT_EXEC,
-        MAP_PRIVATE|MAP_ANONYMOUS,
+        PROT_READ|PROT_WRITE,
+        MAP_PRIVATE|MAP_ANONYMOUS|MAP_JIT,
         -1,0);
 #endif
     if(!mem) {
@@ -75,6 +79,9 @@ void amd64jit::exec() {
     std::cout<<"getchar : 0x"<<std::hex<<std::setw(16)<<std::setfill('0')<<(uint64_t)getchar<<std::dec<<std::endl;
     std::cout<<"putchar : 0x"<<std::hex<<std::setw(16)<<std::setfill('0')<<(uint64_t)putchar<<std::dec<<std::endl;
     std::cout<<"memory  : 0x"<<std::hex<<std::setw(16)<<std::setfill('0')<<(uint64_t)mem<<std::dec<<std::endl;
+#ifndef _WIN32
+    mprotect(mem,size,PROT_READ|PROT_EXEC);
+#endif
     ((func)mem)();
 }
 
