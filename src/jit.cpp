@@ -137,12 +137,12 @@ void jit(const std::vector<opcode>& code) {
     mem.push({0x48, 0x89, 0xe5}); // mov %rsp, %rbp
 
     /* save register context */
-    mem.push({0x57})             // pushq %rdi
-       .push({0x56})             // pushq %rsi
-       .push({0x53})             // pushq %rbx
-       .push({0x52})             // pushq %rdx
-       .push({0x51})             // pushq %rcx
-       .push({0x50});            // pushq %rax
+    mem.push({0x57})              // pushq %rdi
+       .push({0x56})              // pushq %rsi
+       .push({0x53})              // pushq %rbx
+       .push({0x52})              // pushq %rdx
+       .push({0x51})              // pushq %rcx
+       .push({0x50});             // pushq %rax
 
     /* set bf machine's paper pointer */
     mem.push({0x48, 0xbb}).push64((uint64_t)buff); // movq $buff, %rbx
