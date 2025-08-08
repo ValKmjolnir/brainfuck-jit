@@ -200,6 +200,8 @@ void jit(const std::vector<opcode>& code) {
 }
 
 void usage() {
+    std::cout << "brainfuckjit - a brainfuck JIT compiler\n";
+    std::cout << "using MIT license, presented by ValKmjolnir\n\n";
     std::cout << "usage:\n";
     std::cout << "  jit [options] <filename>\n\n";
     std::cout << "options:\n";
