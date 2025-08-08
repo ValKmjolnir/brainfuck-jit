@@ -3,7 +3,7 @@
 # for linux/mac x86_64/amd64
 jit:./src/jit.cpp ./src/amd64jit.h
 	@ echo "[build] jit - amd64"
-	@ clang++ -O3 -std=c++14 ./src/jit.cpp -o jit -Wshadow -Wall
+	@ c++ -O3 -std=c++14 ./src/jit.cpp -o jit -Wshadow -Wall
 
 # for windows mingw-w64 x86_64/amd64
 jit.exe:./src/jit.cpp ./src/amd64jit.h

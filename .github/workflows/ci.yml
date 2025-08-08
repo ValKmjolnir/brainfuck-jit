@@ -1,0 +1,41 @@
+name: BrainfuckJIT Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  mac-aarch64:
+    runs-on: macos-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4
+    - name: build
+      run: |
+          make darwin_amd64
+    - name: check
+      run: |
+          ./jit
+    - name: test
+      run: |
+          ./jit -i test/mandelbrot.bf
+          ./jit -j test/mandelbrot.bf
+
+  linux-x86_64:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4
+    - name: build
+      run: |
+          make
+    - name: check
+      run: |
+          ./jit
+    - name: test
+      run: |
+          ./jit -i test/mandelbrot.bf
+          ./jit -j test/mandelbrot.bf

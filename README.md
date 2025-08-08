@@ -164,18 +164,36 @@ op_jf(`[`) uses the `je` and op_jt(`]`) uses the `jne`.
 
 |bf code|opcode|machine code|
 |:----|:----|:----|
-|`+`|op_add|`addb $op.num,(%rbx)`|
-|`-`|op_sub|`subb $op.num,(%rbx)`|
-|`>`|op_addp|`add $op.num %rbx`|
-|`<`|op_subp|`sub $op.num %rbx`|
+|`+`|op_add|`addb $op.num, (%rbx)`|
+|`-`|op_sub|`subb $op.num, (%rbx)`|
+|`>`|op_addp|`add $op.num, %rbx`|
+|`<`|op_subp|`sub $op.num, %rbx`|
 |`[`|op_jf|`je label`|
 |`]`|op_jt|`jne label`|
-|`,`|op_in|`callq *%rax` & `movsbl %al,(%rbx)`|
+|`,`|op_in|`callq *%rax` & `movsbl %al, (%rbx)`|
 |`.`|op_out|`callq *%rax`|
 
-Hope you enjoy it.
+## __Simple Optimization__
 
-### __More__
+Here's a simple pattern that could be optimized:
+
+```bf
+[-]
+```
+
+This means we should set `buff[p]` to zero.
+So we could add another opcode `op_setz`:
+
+|bf code|opcode|machine code|
+|:----|:----|:----|
+|`[-]`|op_setz|`movb $0, (%rbx)`|
+
+```c++
+// movb $0, (%rbx)
+case op_setz: mem.push({0xc6,0x03,0x00}); break;
+```
+
+## __More__
 
 Want to check the output machine code of different CPU arch?
 
