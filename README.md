@@ -219,6 +219,15 @@ Could be optimized to:
 
 Which is called `canonicalization`. This needs the compiler to have the ability to analyze memory/variable access patterns in bf.
 
+And more possible patterns are waiting to be optimized:
+
+```bf
+[-<+>]
+[-<<->>]
+[->>+<<]
+[->++>>>+++++>++>+<<<<<<]
+```
+
 ## __More__
 
 Want to check the output machine code of different CPU arch?
