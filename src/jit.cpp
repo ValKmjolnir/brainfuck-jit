@@ -76,7 +76,7 @@ std::vector<opcode> scanner(const std::string& s) {
                 code.push_back({op_subp, cnt});
                 break;
             case '[':
-                if (i + 2 < s.length() && s[i + 1] == '-' && s[i + 2] == ']') {
+                if (i + 2 < s.length() && (s[i + 1] == '-' || s[i + 1] == '+') && s[i + 2] == ']') {
                     code.push_back({op_setz, 0});
                     i += 2;
                 } else {
