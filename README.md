@@ -37,6 +37,8 @@ for (size_t i = 0; i < code.size(); ++i) {
 }
 ```
 
+### __Basic Optimization__
+
 To optimize the efficiency of the interpreter,
 i count consecutive operators instead of just translating operators into an opcode.
 You will see the structure of opcode in `jit.cpp`.
@@ -45,10 +47,10 @@ For example:
 
 |bf code|opcode|
 |:----|:----|
-|`+++`|`buf[p]+=3`|
-|`----`|`buf[p]-=4`|
-|`>>>>>`|`p+=5`|
-|`<<`|`p-=2`|
+|`+++`|`buf[p] += 3`|
+|`----`|`buf[p] -= 4`|
+|`>>>>>`|`p += 5`|
+|`<<`|`p -= 2`|
 
 ## __Just-In-Time Compiler__
 
